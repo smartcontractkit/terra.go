@@ -2,14 +2,15 @@ package client
 
 import (
 	"context"
+	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/terra-project/terra.go/key"
-	"github.com/terra-project/terra.go/msg"
-	"github.com/terra-project/terra.go/tx"
+	"github.com/smartcontractkit/terra.go/key"
+	"github.com/smartcontractkit/terra.go/msg"
+	"github.com/smartcontractkit/terra.go/tx"
 )
 
 func Test_Transaction(t *testing.T) {
@@ -45,7 +46,7 @@ func Test_Transaction(t *testing.T) {
 		})
 	assert.NoError(t, err)
 
-	res, err := LCDClient.Broadcast(context.Background(), tx)
+	res, err := LCDClient.Broadcast(context.Background(), tx, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	assert.NoError(t, err)
 	assert.Equal(t, res.Code, uint32(0))
 }

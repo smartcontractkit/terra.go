@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/terra-project/terra.go/key"
-	"github.com/terra-project/terra.go/msg"
+	"github.com/smartcontractkit/terra.go/key"
+	"github.com/smartcontractkit/terra.go/msg"
 
 	terraapp "github.com/terra-money/core/app"
 )

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/terra-project/terra.go/key"
-	"github.com/terra-project/terra.go/msg"
-	"github.com/terra-project/terra.go/tx"
+	"github.com/smartcontractkit/terra.go/key"
+	"github.com/smartcontractkit/terra.go/msg"
+	"github.com/smartcontractkit/terra.go/tx"
 
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 

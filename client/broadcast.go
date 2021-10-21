@@ -10,14 +10,14 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"golang.org/x/net/context/ctxhttp"
 
-	"github.com/terra-project/terra.go/tx"
+	"github.com/smartcontractkit/terra.go/tx"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 )
 
 // Broadcast - no-lint
-func (lcd LCDClient) Broadcast(ctx context.Context, txbuilder *tx.Builder) (*sdk.TxResponse, error) {
+func (lcd LCDClient) Broadcast(ctx context.Context, txbuilder *tx.Builder, bcMode txtypes.BroadcastMode) (*sdk.TxResponse, error) {
 	txBytes, err := txbuilder.GetTxBytes()
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func (lcd LCDClient) Broadcast(ctx context.Context, txbuilder *tx.Builder) (*sdk
 
 	broadcastReq := txtypes.BroadcastTxRequest{
 		TxBytes: txBytes,
-		Mode:    txtypes.BroadcastMode_BROADCAST_MODE_SYNC,
+		Mode:    bcMode,
 	}
 
 	reqBytes, err := json.Marshal(broadcastReq)
