@@ -1,5 +1,5 @@
 # terra.go
-Simple transaction build & signing library
+Simple transaction, querying, build & signing library
 
 ## How to use
 ```
