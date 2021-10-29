@@ -3,14 +3,12 @@ package tx
 import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/tx"
-	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 
 	core "github.com/terra-money/core/types"
-
-	"github.com/terra-project/terra.go/key"
 )
 
 func init() {
@@ -36,7 +34,7 @@ func NewTxBuilder(txConfig client.TxConfig) Builder {
 // Only support Secp256k1 uses the Bitcoin secp256k1 ECDSA parameters.
 func (txBuilder Builder) Sign(
 	signMode signing.SignMode, signerData SignerData,
-	privKey key.PrivKey, overwriteSig bool) error {
+	keystore keyring.Keyring, name string, overwriteSig bool) error {
 
 	// For SIGN_MODE_DIRECT, calling SetSignatures calls setSignerInfos on
 	// TxBuilder under the hood, and SignerInfos is needed to generated the
@@ -46,47 +44,59 @@ func (txBuilder Builder) Sign(
 	// Note: this line is not needed for SIGN_MODE_LEGACY_AMINO, but putting it
 	// also doesn't affect its generated sign bytes, so for code's simplicity
 	// sake, we put it here.
-	sigData := signing.SingleSignatureData{
-		SignMode:  signMode,
-		Signature: nil,
-	}
-	sig := signing.SignatureV2{
-		PubKey:   privKey.PubKey(),
-		Data:     &sigData,
-		Sequence: signerData.Sequence,
-	}
+	// sigData := signing.SingleSignatureData{
+	// 	SignMode:  signMode,
+	// 	Signature: nil,
+	// }
+	// sig := signing.SignatureV2{
+	// 	PubKey:   privKey.PubKey(),
+	// 	Data:     &sigData,
+	// 	Sequence: signerData.Sequence,
+	// }
 
-	var err error
-	var prevSignatures []signing.SignatureV2
-	if !overwriteSig {
-		prevSignatures, err = txBuilder.GetTx().GetSignaturesV2()
-		if err != nil {
-			return err
-		}
-	}
+	// var err error
+	// var prevSignatures []signing.SignatureV2
+	// if !overwriteSig {
+	// 	prevSignatures, err = txBuilder.GetTx().GetSignaturesV2()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	if err := txBuilder.SetSignatures(sig); err != nil {
-		return err
-	}
+	// if err := txBuilder.SetSignatures(sig); err != nil {
+	// 	return err
+	// }
 
-	signature, err := tx.SignWithPrivKey(
-		signing.SignMode(signMode),
-		authsigning.SignerData(signerData),
-		client.TxBuilder(txBuilder.TxBuilder),
-		cryptotypes.PrivKey(privKey),
-		client.TxConfig(txBuilder.TxConfig),
-		signerData.Sequence,
-	)
+	txFactory := tx.Factory{}
+	txFactory = txFactory.
+		WithKeybase(keystore).
+		WithAccountNumber(signerData.AccountNumber).
+		WithSignMode(signMode).
+		WithSequence(signerData.Sequence).
+		WithChainID(signerData.ChainID)
+
+	// signature, err := tx.SignWithPrivKey(
+	// 	signing.SignMode(signMode),
+	// 	authsigning.SignerData(signerData),
+	// 	client.TxBuilder(txBuilder.TxBuilder),
+	// 	cryptotypes.PrivKey(privKey),
+	// 	client.TxConfig(txBuilder.TxConfig),
+	// 	signerData.Sequence,
+	// )
+
+	err := tx.Sign(txFactory, name, txBuilder, overwriteSig)
 
 	if err != nil {
 		return err
 	}
 
-	if overwriteSig {
-		return txBuilder.SetSignatures(signature)
-	}
-	prevSignatures = append(prevSignatures, signature)
-	return txBuilder.SetSignatures(prevSignatures...)
+	return nil
+
+	// if overwriteSig {
+	// 	return txBuilder.SetSignatures(signature)
+	// }
+	// prevSignatures = append(prevSignatures, signature)
+	// return txBuilder.SetSignatures(prevSignatures...)
 }
 
 // GetTxBytes return tx bytes for broadcast

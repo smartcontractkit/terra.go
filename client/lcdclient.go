@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/terra-project/terra.go/key"
+	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	"github.com/terra-project/terra.go/msg"
 	"github.com/terra-project/terra.go/tx"
 
@@ -22,20 +22,20 @@ type LCDClient struct {
 	GasPrice      msg.DecCoin
 	GasAdjustment msg.Dec
 
-	PrivKey        key.PrivKey
+	Keystore       keyring.Keyring
 	EncodingConfig terraappparams.EncodingConfig
 
 	c *http.Client
 }
 
 // NewLCDClient create new LCDClient
-func NewLCDClient(URL, chainID string, gasPrice msg.DecCoin, gasAdjustment msg.Dec, tmKey key.PrivKey, httpTimeout time.Duration) *LCDClient {
+func NewLCDClient(URL, chainID string, gasPrice msg.DecCoin, gasAdjustment msg.Dec, keystore keyring.Keyring, httpTimeout time.Duration) *LCDClient {
 	return &LCDClient{
 		URL:            URL,
 		ChainID:        chainID,
 		GasPrice:       gasPrice,
 		GasAdjustment:  gasAdjustment,
-		PrivKey:        tmKey,
+		Keystore:       keystore,
 		EncodingConfig: terraapp.MakeEncodingConfig(),
 		c:              &http.Client{Timeout: httpTimeout},
 	}
@@ -43,9 +43,9 @@ func NewLCDClient(URL, chainID string, gasPrice msg.DecCoin, gasAdjustment msg.D
 
 // CreateTxOptions tx creation options
 type CreateTxOptions struct {
-	Msgs []msg.Msg
-	Memo string
-
+	Msgs    []msg.Msg
+	Memo    string
+	Keyname string
 	// Optional parameters
 	AccountNumber uint64
 	Sequence      uint64
@@ -73,7 +73,12 @@ func (lcd *LCDClient) CreateAndSignTx(ctx context.Context, options CreateTxOptio
 	}
 
 	if options.AccountNumber == 0 || options.Sequence == 0 {
-		account, err := lcd.LoadAccount(ctx, msg.AccAddress(lcd.PrivKey.PubKey().Address()))
+		pubkey, err := lcd.Keystore.Key(options.Keyname)
+		if err != nil {
+			return nil, sdkerrors.Wrap(err, "failed to load key")
+		}
+
+		account, err := lcd.LoadAccount(ctx, msg.AccAddress(pubkey.GetPubKey().Address()))
 		if err != nil {
 			return nil, sdkerrors.Wrap(err, "failed to load account")
 		}
@@ -107,7 +112,7 @@ func (lcd *LCDClient) CreateAndSignTx(ctx context.Context, options CreateTxOptio
 		AccountNumber: options.AccountNumber,
 		ChainID:       lcd.ChainID,
 		Sequence:      options.Sequence,
-	}, lcd.PrivKey, true)
+	}, lcd.Keystore, options.Keyname, true)
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to sign tx")
 	}

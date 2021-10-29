@@ -24,10 +24,19 @@ type EstimateFeeResWrapper struct {
 
 // EstimateFee simulates gas and fee for a transaction
 func (lcd LCDClient) EstimateFee(ctx context.Context, options CreateTxOptions) (res *feeutils.EstimateFeeResp, err error) {
+	pubkey, err := lcd.Keystore.Key(options.Keyname)
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "failed to load key")
+	}
+
+	account, err := lcd.LoadAccount(ctx, msg.AccAddress(pubkey.GetPubKey().Address()))
+	if err != nil {
+		return nil, sdkerrors.Wrap(err, "failed to load account")
+	}
 
 	estimateReq := feeutils.EstimateFeeReq{
 		BaseReq: rest.BaseReq{
-			From:          msg.AccAddress(lcd.PrivKey.PubKey().Address()).String(),
+			From:          account.String(),
 			Memo:          options.Memo,
 			ChainID:       lcd.ChainID,
 			AccountNumber: options.AccountNumber,
