@@ -31,41 +31,24 @@ func (lcd LCDClient) Broadcast(ctx context.Context, txbuilder *tx.Builder, bcMod
 
 	switch mode := bcMode; mode {
 	case BroadcastAsync:
-		resp, err = lcd.broadcastAsync(ctx, txBytes)
+		resp, err = lcd.tmc.BroadcastTxAsync(ctx, txBytes)
 	case BroadcastSync:
-		resp, err = lcd.broadcastSync(ctx, txBytes)
+		resp, err = lcd.tmc.BroadcastTxSync(ctx, txBytes)
 	case BroadcastBlock:
 		resp, err = lcd.broadcastBlock(ctx, txBytes)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.Code != 0 {
+		return nil, fmt.Errorf("Broadcast Error: %s", resp.Log)
 	}
 
 	return resp, err
 }
 
-func (lcd LCDClient) broadcastSync(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
-	resp, err := lcd.tmc.BroadcastTxSync(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.Code != 0 {
-		return nil, fmt.Errorf("Broadcast Error: %s", resp.Log)
-	}
-
-	return resp, nil
-}
-
-func (lcd LCDClient) broadcastAsync(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
-	resp, err := lcd.tmc.BroadcastTxAsync(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.Code != 0 {
-		return nil, fmt.Errorf("Broadcast Error: %s", resp.Log)
-	}
-
-	return resp, nil
-}
 func (lcd LCDClient) broadcastBlock(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
 	resp, err := lcd.tmc.BroadcastTxCommit(ctx, tx)
 	if err != nil {

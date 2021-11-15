@@ -40,7 +40,7 @@ func NewLCDClient(WsUrl, HttpUrl, chainID string, gasPrice msg.DecCoin, gasAdjus
 	if err != nil {
 		return nil, err
 	}
-	client, err := tmclient.New(fmt.Sprintf("%s://%s:%s", u.Scheme, u.Host, u.Port()), u.Path)
+	client, err := tmclient.New(fmt.Sprintf("tcp://%s", u.Host), u.Path)
 	if err != nil {
 		return nil, err
 	}

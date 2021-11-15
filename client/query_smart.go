@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -24,7 +23,7 @@ func (lcd LCDClient) Query(ctx context.Context, addr msg.AccAddress, qMsg ABCIQu
 	if err != nil {
 		return err
 	}
-	resp, err := lcd.tmc.ABCIQuery(ctx, "custom/wasm/contractStore", tmbytes.HexBytes(hex.EncodeToString(bz)))
+	resp, err := lcd.tmc.ABCIQuery(ctx, "custom/wasm/contractStore", tmbytes.HexBytes(bz))
 
 	if err != nil {
 		return err
