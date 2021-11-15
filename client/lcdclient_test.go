@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"testing"
 	"time"
 
@@ -26,13 +25,15 @@ func Test_Transaction(t *testing.T) {
 	toAddr, err := msg.AccAddressFromBech32("terra1t849fxw7e8ney35mxemh4h3ayea4zf77dslwna")
 	assert.NoError(t, err)
 
-	LCDClient := NewLCDClient(
+	LCDClient, err := NewLCDClient(
+		"ws://127.0.0.1:26657/websocket",
 		"http://127.0.0.1:1317",
 		"testnet",
 		msg.NewDecCoinFromDec("uusd", msg.NewDecFromIntWithPrec(msg.NewInt(15), 2)), // 0.15uusd
 		msg.NewDecFromIntWithPrec(msg.NewInt(15), 1), privKey,
 		10*time.Second,
 	)
+	assert.NoError(t, err)
 
 	tx, err := LCDClient.CreateAndSignTx(
 		context.Background(),
@@ -46,7 +47,7 @@ func Test_Transaction(t *testing.T) {
 		})
 	assert.NoError(t, err)
 
-	res, err := LCDClient.Broadcast(context.Background(), tx, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+	res, err := LCDClient.Broadcast(context.Background(), tx, BroadcastBlock)
 	assert.NoError(t, err)
 	assert.Equal(t, res.Code, uint32(0))
 }

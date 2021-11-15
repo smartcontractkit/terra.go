@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 
@@ -16,6 +17,7 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 
 	customauthtx "github.com/terra-money/core/custom/auth/tx"
 )
@@ -34,23 +36,15 @@ type QueryAccountRes struct {
 
 // LoadAccount simulates gas and fee for a transaction
 func (lcd LCDClient) LoadAccount(ctx context.Context, address msg.AccAddress) (res authtypes.AccountI, err error) {
-	resp, err := ctxhttp.Get(ctx, lcd.c, lcd.URL+fmt.Sprintf("/cosmos/auth/v1beta1/accounts/%s", address))
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "failed to estimate")
-	}
-	defer resp.Body.Close()
+	query := hex.EncodeToString([]byte(fmt.Sprintf(`{"address": "%s"}`, address)))
+	resp, err := lcd.tmc.ABCIQuery(ctx, "custom/auth/account", tmbytes.HexBytes(query))
 
-	out, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, sdkerrors.Wrap(err, "failed to read response")
-	}
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("non-200 response code %d: %s", resp.StatusCode, string(out))
+		return nil, err
 	}
 
 	var response authtypes.QueryAccountResponse
-	err = lcd.EncodingConfig.Marshaler.UnmarshalJSON(out, &response)
+	err = lcd.EncodingConfig.Marshaler.UnmarshalJSON(resp.Response.Value, &response)
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to unmarshal response")
 	}
@@ -85,7 +79,7 @@ func (lcd LCDClient) Simulate(ctx context.Context, txbuilder tx.Builder, options
 		return nil, err
 	}
 
-	resp, err := ctxhttp.Post(ctx, lcd.c, lcd.URL+"/cosmos/tx/v1beta1/simulate", "application/json", bytes.NewBuffer(reqBytes))
+	resp, err := ctxhttp.Post(ctx, lcd.httpc, lcd.HttpUrl+"/cosmos/tx/v1beta1/simulate", "application/json", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to estimate")
 	}
@@ -128,7 +122,7 @@ func (lcd LCDClient) ComputeTax(ctx context.Context, txbuilder tx.Builder) (*cus
 		return nil, err
 	}
 
-	resp, err := ctxhttp.Post(ctx, lcd.c, lcd.URL+"/terra/tx/v1beta1/compute_tax", "application/json", bytes.NewBuffer(reqBytes))
+	resp, err := ctxhttp.Post(ctx, lcd.httpc, lcd.HttpUrl+"/terra/tx/v1beta1/compute_tax", "application/json", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to estimate")
 	}
