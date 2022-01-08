@@ -2,43 +2,59 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/smartcontractkit/terra.go/key"
 	"github.com/smartcontractkit/terra.go/msg"
 	"github.com/smartcontractkit/terra.go/tx"
 
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 
+	tmclient "github.com/tendermint/tendermint/rpc/client/http"
 	terraapp "github.com/terra-money/core/app"
 	terraappparams "github.com/terra-money/core/app/params"
 )
 
 // LCDClient outer interface for building & signing & broadcasting tx
 type LCDClient struct {
-	URL           string
+	HttpUrl       string
 	ChainID       string
 	GasPrice      msg.DecCoin
 	GasAdjustment msg.Dec
+	codec         *codec.LegacyAmino
 
 	PrivKey        key.PrivKey
 	EncodingConfig terraappparams.EncodingConfig
 
-	c *http.Client
+	httpc *http.Client
+	tmc   *tmclient.HTTP
 }
 
 // NewLCDClient create new LCDClient
-func NewLCDClient(URL, chainID string, gasPrice msg.DecCoin, gasAdjustment msg.Dec, tmKey key.PrivKey, httpTimeout time.Duration) *LCDClient {
+func NewLCDClient(WsUrl, HttpUrl, chainID string, gasPrice msg.DecCoin, gasAdjustment msg.Dec, tmKey key.PrivKey, httpTimeout time.Duration) (*LCDClient, error) {
+	u, err := url.Parse(WsUrl)
+	if err != nil {
+		return nil, err
+	}
+	client, err := tmclient.New(fmt.Sprintf("tcp://%s", u.Host), u.Path)
+	if err != nil {
+		return nil, err
+	}
 	return &LCDClient{
-		URL:            URL,
+		HttpUrl:        HttpUrl,
 		ChainID:        chainID,
 		GasPrice:       gasPrice,
+		codec:          codec.NewLegacyAmino(),
 		GasAdjustment:  gasAdjustment,
 		PrivKey:        tmKey,
 		EncodingConfig: terraapp.MakeEncodingConfig(),
-		c:              &http.Client{Timeout: httpTimeout},
-	}
+		httpc:          &http.Client{Timeout: httpTimeout},
+		tmc:            client,
+	}, nil
 }
 
 // CreateTxOptions tx creation options

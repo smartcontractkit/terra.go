@@ -16,6 +16,7 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
 
 	customauthtx "github.com/terra-money/core/custom/auth/tx"
 )
@@ -32,9 +33,8 @@ type QueryAccountRes struct {
 	Account QueryAccountResData `json:"account"`
 }
 
-// LoadAccount simulates gas and fee for a transaction
 func (lcd LCDClient) LoadAccount(ctx context.Context, address msg.AccAddress) (res authtypes.AccountI, err error) {
-	resp, err := ctxhttp.Get(ctx, lcd.c, lcd.URL+fmt.Sprintf("/cosmos/auth/v1beta1/accounts/%s", address))
+	resp, err := ctxhttp.Get(ctx, lcd.httpc, lcd.HttpUrl+fmt.Sprintf("/cosmos/auth/v1beta1/accounts/%s", address))
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to estimate")
 	}
@@ -85,7 +85,7 @@ func (lcd LCDClient) Simulate(ctx context.Context, txbuilder tx.Builder, options
 		return nil, err
 	}
 
-	resp, err := ctxhttp.Post(ctx, lcd.c, lcd.URL+"/cosmos/tx/v1beta1/simulate", "application/json", bytes.NewBuffer(reqBytes))
+	resp, err := ctxhttp.Post(ctx, lcd.httpc, lcd.HttpUrl+"/cosmos/tx/v1beta1/simulate", "application/json", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to estimate")
 	}
@@ -128,7 +128,7 @@ func (lcd LCDClient) ComputeTax(ctx context.Context, txbuilder tx.Builder) (*cus
 		return nil, err
 	}
 
-	resp, err := ctxhttp.Post(ctx, lcd.c, lcd.URL+"/terra/tx/v1beta1/compute_tax", "application/json", bytes.NewBuffer(reqBytes))
+	resp, err := ctxhttp.Post(ctx, lcd.httpc, lcd.HttpUrl+"/terra/tx/v1beta1/compute_tax", "application/json", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to estimate")
 	}
@@ -150,4 +150,8 @@ func (lcd LCDClient) ComputeTax(ctx context.Context, txbuilder tx.Builder) (*cus
 	}
 
 	return &response, nil
+}
+
+func (lcd LCDClient) TxSearch(ctx context.Context, query string, prove bool, orderBy string) (*ctypes.ResultTxSearch, error) {
+	return lcd.tmc.TxSearch(ctx, query, prove, nil, nil, orderBy)
 }

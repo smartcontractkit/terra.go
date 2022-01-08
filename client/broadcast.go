@@ -1,62 +1,69 @@
 package client
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"golang.org/x/net/context/ctxhttp"
 
 	"github.com/smartcontractkit/terra.go/tx"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
+	ctypes "github.com/tendermint/tendermint/rpc/core/types"
+	"github.com/tendermint/tendermint/types"
+)
+
+type BroadcastTxMethod string
+
+const (
+	// Returns with response from CheckTx, does not wait for DeliverTx
+	BroadcastSync BroadcastTxMethod = "broadcast_tx_sync"
+	// Returns right away with no response
+	BroadcastAsync BroadcastTxMethod = "broadcast_tx_async"
+	// Returns with response from CheckTx and DeliverTx
+	BroadcastBlock BroadcastTxMethod = "broadcast_tx_commit"
 )
 
 // Broadcast - no-lint
-func (lcd LCDClient) Broadcast(ctx context.Context, txbuilder *tx.Builder, bcMode txtypes.BroadcastMode) (*sdk.TxResponse, error) {
+func (lcd LCDClient) Broadcast(ctx context.Context, txbuilder *tx.Builder, bcMode BroadcastTxMethod) (*ctypes.ResultBroadcastTx, error) {
 	txBytes, err := txbuilder.GetTxBytes()
 	if err != nil {
 		return nil, err
 	}
+	var resp *ctypes.ResultBroadcastTx
 
-	broadcastReq := txtypes.BroadcastTxRequest{
-		TxBytes: txBytes,
-		Mode:    bcMode,
+	switch mode := bcMode; mode {
+	case BroadcastAsync:
+		resp, err = lcd.tmc.BroadcastTxAsync(ctx, txBytes)
+	case BroadcastSync:
+		resp, err = lcd.tmc.BroadcastTxSync(ctx, txBytes)
+	case BroadcastBlock:
+		resp, err = lcd.broadcastBlock(ctx, txBytes)
 	}
 
-	reqBytes, err := json.Marshal(broadcastReq)
 	if err != nil {
-		return nil, sdkerrors.Wrap(err, "failed to marshal")
+		return nil, err
 	}
 
-	resp, err := ctxhttp.Post(ctx, lcd.c, lcd.URL+"/cosmos/tx/v1beta1/txs", "application/json", bytes.NewBuffer(reqBytes))
+	if resp.Code != 0 {
+		return nil, fmt.Errorf("Broadcast Error: %s", resp.Log)
+	}
+
+	return resp, err
+}
+
+func (lcd LCDClient) broadcastBlock(ctx context.Context, tx types.Tx) (*ctypes.ResultBroadcastTx, error) {
+	resp, err := lcd.tmc.BroadcastTxCommit(ctx, tx)
 	if err != nil {
-		return nil, sdkerrors.Wrap(err, "failed to broadcast")
+		return nil, err
 	}
 
-	out, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "failed to read response")
+	if resp.DeliverTx.Code != 0 {
+		return nil, fmt.Errorf("Broadcast Error: %s", resp.DeliverTx.Log)
 	}
 
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("non-200 response code %d: %s", resp.StatusCode, string(out))
-	}
-
-	var broadcastTxResponse txtypes.BroadcastTxResponse
-	err = lcd.EncodingConfig.Marshaler.UnmarshalJSON(out, &broadcastTxResponse)
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "failed to unmarshal response")
-	}
-
-	txResponse := broadcastTxResponse.TxResponse
-	if txResponse.Code != 0 {
-		return txResponse, fmt.Errorf("tx failed with code %d: %s", txResponse.Code, txResponse.RawLog)
-	}
-
-	return txResponse, nil
+	return &ctypes.ResultBroadcastTx{
+		Code:      resp.DeliverTx.Code,
+		Data:      resp.DeliverTx.Data,
+		Log:       resp.DeliverTx.Log,
+		Codespace: resp.DeliverTx.Codespace,
+		Hash:      resp.Hash,
+	}, nil
 }

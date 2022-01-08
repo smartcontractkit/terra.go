@@ -2,44 +2,40 @@ package client
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+
 	"github.com/smartcontractkit/terra.go/msg"
-	"golang.org/x/net/context/ctxhttp"
-	"io/ioutil"
-	"net/http"
+	tmbytes "github.com/tendermint/tendermint/libs/bytes"
 )
 
-// QuerySmart query smart contract store with qMsg marshalling it into JSON and encoding as a Base64 query param
-func (lcd LCDClient) QuerySmart(ctx context.Context, addr msg.AccAddress, qMsg interface{}, qResponse interface{}) error {
-	url := fmt.Sprintf("%s/terra/wasm/v1beta1/contracts/%s/store", lcd.URL, addr.String())
-	reqBytes, err := json.Marshal(qMsg)
+type ABCIQueryParams struct {
+	ContractAddress string
+	Msg             []byte
+}
+
+func NewAbciQueryParams(contractAddress string, msg []byte) ABCIQueryParams {
+	return ABCIQueryParams{contractAddress, msg}
+}
+
+func (lcd LCDClient) Query(ctx context.Context, addr msg.AccAddress, qMsg ABCIQueryParams, qResponse interface{}) error {
+	bz, err := lcd.codec.MarshalJSON(qMsg)
 	if err != nil {
-		return sdkerrors.Wrap(err, "failed to marshal")
-	}
-	r, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return sdkerrors.Wrap(err, "failed to create query request")
-	}
-	sEnc := base64.StdEncoding.EncodeToString(reqBytes)
-	q := r.URL.Query()
-	q.Add("query_msg", sEnc)
-	r.URL.RawQuery = q.Encode()
-	resp, err := ctxhttp.Do(ctx, lcd.c, r)
-	if err != nil {
-		return sdkerrors.Wrap(err, "failed to query")
-	}
-	out, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return sdkerrors.Wrap(err, "failed to read response")
-	}
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("non-200 response code %d: %s", resp.StatusCode, string(out))
-	}
-	if err := json.Unmarshal(out, &qResponse); err != nil {
 		return err
 	}
+	resp, err := lcd.tmc.ABCIQuery(ctx, "custom/wasm/contractStore", tmbytes.HexBytes(bz))
+
+	if err != nil {
+		return err
+	}
+
+	if resp.Response.Code != 0 {
+		return fmt.Errorf(resp.Response.Log)
+	}
+
+	if err := json.Unmarshal(resp.Response.Value, &qResponse); err != nil {
+		return err
+	}
+
 	return nil
 }

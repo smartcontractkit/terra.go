@@ -46,7 +46,7 @@ func (lcd LCDClient) EstimateFee(ctx context.Context, options CreateTxOptions) (
 		return nil, sdkerrors.Wrap(err, "failed to marshal")
 	}
 
-	resp, err := ctxhttp.Post(ctx, lcd.c, lcd.URL+"/txs/estimate_fee", "application/json", bytes.NewBuffer(reqBytes))
+	resp, err := ctxhttp.Post(ctx, lcd.httpc, lcd.HttpUrl+"/txs/estimate_fee", "application/json", bytes.NewBuffer(reqBytes))
 	if err != nil {
 		return nil, sdkerrors.Wrap(err, "failed to estimate")
 	}
